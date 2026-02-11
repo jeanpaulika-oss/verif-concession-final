@@ -1,37 +1,12 @@
-const map = L.map('map').setView([46.6, 2.4], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-let reseau;
-let marker;
-
-// CHANGER LE NOM ICI SI TON FICHIER EST .JSON OU .GEOJSON
-const NOM_FICHIER = "rrn_concession.json"; 
-
-fetch(NOM_FICHIER + "?v=" + Date.now())
-    .then(response => {
-        if (!response.ok) throw new Error("Fichier introuvable sur le serveur");
-        return response.json();
-    })
-    .then(data => {
-        reseau = data;
-        console.log("Données chargées avec succès");
-        // Affiche le réseau en bleu très clair pour confirmer le chargement
-        L.geoJSON(data, {style: {color: "#3498db", weight: 1, opacity: 0.3}}).addTo(map);
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Erreur : Le fichier " + NOM_FICHIER + " ne peut pas être lu. Vérifiez le nom sur GitHub.");
-    });
-
 function verifier() {
     const input = document.getElementById("location").value;
     const resultDiv = document.getElementById("result");
     
-    // Extraction des coordonnées (accepte virgules et points)
     const matches = input.match(/-?\d+\.\d+/g);
     if (!matches || matches.length < 2) {
         resultDiv.innerHTML = "❌ Format incorrect";
         resultDiv.style.background = "#ffcccc";
+        resultDiv.style.color = "black";
         return;
     }
 
@@ -50,21 +25,23 @@ function verifier() {
     const point = turf.point([lon, lat]);
     let segmentTrouve = null;
 
-    // Buffer de 150m pour compenser l'imprécision GPS
-    const zoneRecherche = turf.buffer(point, 0.15, {units: 'kilometers'});
+    // Utilisation d'un buffer légèrement plus large (200m) pour les zones d'échangeurs
+    const zoneRecherche = turf.buffer(point, 0.2, {units: 'kilometers'});
 
-    reseau.features.forEach(f => {
-        if (!turf.booleanDisjoint(zoneRecherche, f)) {
-            segmentTrouve = f;
-        }
+    // On utilise find pour s'arrêter au premier segment trouvé
+    segmentTrouve = reseau.features.find(f => {
+        return !turf.booleanDisjoint(zoneRecherche, f);
     });
 
     if (segmentTrouve) {
         const p = segmentTrouve.properties;
-        // On teste tous les noms de colonnes possibles
-        const c = p.concessionPr || p.concession || p.CONCESSION || p.statut || "N";
+        
+        // On cherche la valeur 'C' ou 'Concédé' dans n'importe quelle colonne
+        // C'est plus sûr si Mapshaper a renommé les colonnes
+        const infos = Object.values(p);
+        const estConcede = infos.includes("C") || infos.includes("Concédé") || p.concessionPr === "C";
 
-        if (c === "C" || c === "Concédé") {
+        if (estConcede) {
             resultDiv.style.background = "#e74c3c";
             resultDiv.innerHTML = "🔴 ROUTE CONCÉDÉE";
         } else {
