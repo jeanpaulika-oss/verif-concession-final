@@ -45,6 +45,7 @@ function verifier() {
         resultDiv.innerText = "⚠️ Données non chargées";
         return;
     }
+console.log("Nombre de segments :", reseau.features.length);
 
     const point = turf.point([lon, lat]);
     let segmentTrouve = null;
