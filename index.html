@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dépannage - Vérification</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #eee; text-align: center; }
+        .box { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+        #map { height: 300px; margin-top: 15px; border-radius: 10px; }
+        #result { margin-top: 15px; padding: 20px; font-weight: bold; border-radius: 8px; font-size: 1.2em; }
+        input { width: 90%; padding: 12px; font-size: 16px; margin-bottom: 10px; }
+        button { width: 95%; padding: 15px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Vérifier la route</h2>
+        <input id="location" type="text" placeholder="Coller les coordonnées (ex: 45.7, 4.8)">
+        <button onclick="verifier()">VÉRIFIER MAINTENANT</button>
+        <div id="result">Prêt pour le test</div>
+        <div id="map"></div>
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
