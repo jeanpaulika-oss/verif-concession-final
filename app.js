@@ -45,7 +45,10 @@ function verifier() {
         resultDiv.innerText = "⚠️ Données non chargées";
         return;
     }
-console.log("Nombre de segments :", reseau.features.length);
+console.log("RESEAU =", reseau);
+console.log("FEATURES =", reseau.features);
+console.log("TYPE =", reseau.type);
+
 
     const point = turf.point([lon, lat]);
     let segmentTrouve = null;
@@ -78,4 +81,5 @@ console.log("Nombre de segments :", reseau.features.length);
     }
     resultDiv.style.color = "white";
 }
+
 
