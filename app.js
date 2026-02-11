@@ -99,7 +99,7 @@ function verifier() {
     console.log("Point Turf :", point);
 
     // Buffer LARGE pour test sécurisé
-    const zoneRecherche = turf.buffer(point, 1, { units: 'kilometers' });
+    const zoneRecherche = turf.buffer(point, 0.2, { units: 'kilometers' });
 
     console.log("Zone recherche créée ✅");
 
@@ -159,3 +159,4 @@ function verifier() {
 
     resultDiv.style.color = "white";
 }
+
