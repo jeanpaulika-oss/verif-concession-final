@@ -51,7 +51,7 @@ console.log("Nombre de segments :", reseau.features.length);
     let segmentTrouve = null;
 
     // Utilisation d'un buffer de 200m pour les zones d'échangeurs
-    const zoneRecherche = turf.buffer(point, 0.2, {units: 'kilometers'});
+    const zoneRecherche = turf.buffer(point, 1, {units: 'kilometers'});
 
     // On cherche le segment correspondant
     segmentTrouve = reseau.features.find(f => {
@@ -78,3 +78,4 @@ console.log("Nombre de segments :", reseau.features.length);
     }
     resultDiv.style.color = "white";
 }
+
