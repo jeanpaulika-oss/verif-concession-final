@@ -76,7 +76,7 @@ function verifier() {
 
     // Création d'un point Turf et d'une zone tampon (buffer) de 200 mètres
     const point = turf.point([lon, lat]);
-    const zoneRecherche = turf.buffer(point, 0.2, { units: 'kilometers' });
+    const zoneRecherche = turf.buffer(point, 0.020, { units: 'kilometers' });
 
     // Recherche du segment de route correspondant dans le GeoJSON
     let segmentTrouve = reseau.features.find(f => {
@@ -131,3 +131,4 @@ function afficherErreur(message) {
     resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-orange-100 text-orange-700 border border-orange-200";
     resultText.innerHTML = "⚠️ " + message;
 }
+
