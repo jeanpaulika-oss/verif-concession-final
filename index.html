@@ -3,25 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dépannage - Vérification</title>
+    <title>GéoRoute - Vérificateur de Réseau</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #eee; text-align: center; }
-        .box { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-        #map { height: 300px; margin-top: 15px; border-radius: 10px; }
-        #result { margin-top: 15px; padding: 20px; font-weight: bold; border-radius: 8px; font-size: 1.2em; }
-        input { width: 90%; padding: 12px; font-size: 16px; margin-bottom: 10px; }
-        button { width: 95%; padding: 15px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+        #map { height: calc(100vh - 40px); border-radius: 12px; }
+        .custom-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
     </style>
 </head>
-<body>
-    <div class="box">
-        <h2>Vérifier la route</h2>
-        <input id="location" type="text" placeholder="Coller les coordonnées (ex: 45.7, 4.8)">
-        <button onclick="verifier()">VÉRIFIER MAINTENANT</button>
-        <div id="result">Prêt pour le test</div>
-        <div id="map"></div>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="flex flex-col md:flex-row h-screen p-4 gap-4">
+        
+        <div class="w-full md:w-96 flex flex-col gap-4 overflow-y-auto">
+            
+            <div class="bg-white p-6 rounded-2xl custom-shadow">
+                <h1 class="text-2xl font-bold text-blue-600 mb-4">GéoRoute</h1>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Coordonnées GPS</label>
+                        <input id="location" type="text" 
+                               placeholder="Ex: 45.75, 4.85" 
+                               class="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <p class="text-xs text-slate-500 mt-2">
+                            Format accepté : Latitude, Longitude (ex: Google Maps)
+                        </p>
+                    </div>
+                    
+                    <button onclick="verifier()" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
+                        VÉRIFIER LE SEGMENT
+                    </button>
+                </div>
+
+                <div id="result" class="mt-6 p-4 rounded-xl text-center hidden transition-all">
+                    <span id="result-text" class="font-bold"></span>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl custom-shadow flex-grow">
+                <h2 class="font-bold text-lg mb-3">Aide au diagnostic</h2>
+                
+                <div class="space-y-4 text-sm text-slate-600">
+                    <div class="border-l-4 border-red-500 pl-3">
+                        <p class="font-bold text-slate-800">Route Concédée</p>
+                        <p>La gestion est confiée à une société privée (ex: ASF, APRR). Le dépannage répond à des règles spécifiques.</p>
+                    </div>
+                    
+                    <div class="border-l-4 border-green-500 pl-3">
+                        <p class="font-bold text-slate-800">Non Concédé / État</p>
+                        <p>Route gérée par la DIR (Direction Interdépartementale des Routes). Réseau public gratuit.</p>
+                    </div>
+
+                    <div class="border-l-4 border-gray-400 pl-3">
+                        <p class="font-bold text-slate-800">Hors Réseau National</p>
+                        <p>Il s'agit probablement d'une route communale ou départementale non répertoriée dans le RRN.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-grow relative">
+            <div id="map" class="custom-shadow"></div>
+        </div>
     </div>
+
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
     <script src="app.js"></script>
