@@ -1,7 +1,11 @@
-console.log("APP JS CHARGÉ ✅");
+/* ============================================================
+   CONFIGURATION INITIALE DE LA CARTE
+   ============================================================ */
 
+// Initialisation de la carte centrée sur la France
 const map = L.map('map').setView([46.6, 2.4], 6);
 
+// Chargement des tuiles OpenStreetMap
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
@@ -9,154 +13,121 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let reseau = null;
 let marker = null;
 
-console.log("Chargement du JSON...");
+/* ============================================================
+   CHARGEMENT DES DONNÉES GÉOGRAPHIQUES (JSON)
+   ============================================================ */
 
-/* =======================
-   CHARGEMENT DES DONNÉES
-   ======================= */
+console.log("Chargement du réseau routier...");
 
 fetch("rrn_concession.json")
     .then(response => {
         if (!response.ok) {
-            throw new Error("Fichier rrn_concession.json introuvable");
+            throw new Error("Fichier rrn_concession.json introuvable au racine du site");
         }
         return response.json();
     })
     .then(data => {
-
-        console.log("JSON chargé ✅");
-        console.log("TYPE =", data.type);
-
+        console.log("Données chargées avec succès");
         reseau = data;
 
-        if (!reseau.features) {
-            console.error("❌ reseau.features n'existe PAS");
-            console.log("Contenu reçu :", reseau);
-            alert("Erreur structure JSON");
-            return;
-        }
-
-        console.log("Nombre de segments :", reseau.features.length);
-
-        // Affichage visuel du réseau
+        // Affichage léger du réseau sur la carte pour repère visuel
         L.geoJSON(reseau, {
             style: {
                 color: "#3498db",
-                weight: 1,
-                opacity: 0.3
+                weight: 2,
+                opacity: 0.2
             }
         }).addTo(map);
-
     })
     .catch(err => {
-        console.error("ERREUR FETCH ❌", err);
-        alert("Impossible de charger rrn_concession.json");
+        console.error("Erreur lors du chargement :", err);
+        alert("Erreur critique : Impossible de charger la base de données du réseau routier.");
     });
 
-/* =======================
-   FONCTION DE VÉRIFICATION
-   ======================= */
+/* ============================================================
+   FONCTION PRINCIPALE DE VÉRIFICATION
+   ============================================================ */
 
 function verifier() {
-
-    console.log("Vérification lancée 🚀");
-
     const input = document.getElementById("location").value;
     const resultDiv = document.getElementById("result");
+    const resultText = document.getElementById("result-text");
 
-    console.log("Input =", input);
-
+    // Extraction des coordonnées (Latitude, Longitude) via RegEx
     const matches = input.match(/-?\d+\.\d+/g);
 
     if (!matches || matches.length < 2) {
-        resultDiv.innerHTML = "❌ Format incorrect";
-        resultDiv.style.background = "#ffcccc";
-        resultDiv.style.color = "black";
-        console.warn("Format invalide ❌");
+        afficherErreur("Format incorrect. Utilisez : Latitude, Longitude");
         return;
     }
 
     const lat = parseFloat(matches[0]);
     const lon = parseFloat(matches[1]);
 
-    console.log("Coordonnées :", lat, lon);
-
+    // Mise à jour du marqueur sur la carte
     if (marker) map.removeLayer(marker);
-
     marker = L.marker([lat, lon]).addTo(map);
     map.setView([lat, lon], 15);
 
     if (!reseau) {
-        console.warn("⚠️ Données non chargées");
-        resultDiv.innerText = "⚠️ Données non chargées";
-        resultDiv.style.background = "#f39c12";
-        resultDiv.style.color = "white";
+        afficherErreur("Base de données en cours de chargement...");
         return;
     }
 
+    // Création d'un point Turf et d'une zone tampon (buffer) de 200 mètres
     const point = turf.point([lon, lat]);
-
-    console.log("Point Turf :", point);
-
-    // Buffer LARGE pour test sécurisé
     const zoneRecherche = turf.buffer(point, 0.2, { units: 'kilometers' });
 
-    console.log("Zone recherche créée ✅");
-
-    let segmentTrouve = null;
-
-    segmentTrouve = reseau.features.find(f => {
-
+    // Recherche du segment de route correspondant dans le GeoJSON
+    let segmentTrouve = reseau.features.find(f => {
         if (!f.geometry) return false;
 
-        // Gestion MultiLineString (TRÈS IMPORTANT)
+        // Gestion des routes complexes (MultiLineString)
         if (f.geometry.type === "MultiLineString") {
-
             return f.geometry.coordinates.some(line => {
-
                 const ligne = turf.lineString(line);
-
                 return !turf.booleanDisjoint(zoneRecherche, ligne);
             });
-
         } else {
-
             return !turf.booleanDisjoint(zoneRecherche, f);
         }
     });
 
-    console.log("Segment trouvé :", segmentTrouve);
+    // Affichage des résultats avec le nouveau design
+    resultDiv.classList.remove("hidden");
 
     if (segmentTrouve) {
-
         const p = segmentTrouve.properties;
-
-        console.log("Propriétés :", p);
-
-        const infos = Object.values(p);
-
-        const estConcede =
-            infos.includes("C") ||
-            infos.includes("Concédé") ||
-            infos.includes("Concede") ||
-            p.concession === "C";
+        
+        // Vérification du statut de concession (C = Concédé, N = Non concédé)
+        // On vérifie plusieurs propriétés possibles selon la source du JSON
+        const estConcede = 
+            p.concession === "C" || 
+            p.statut === "Concédé" || 
+            Object.values(p).includes("C");
 
         if (estConcede) {
-            resultDiv.style.background = "#e74c3c";
-            resultDiv.innerHTML = "🔴 ROUTE CONCÉDÉE";
+            resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-red-100 text-red-700 border border-red-200";
+            resultText.innerHTML = "🔴 ROUTE CONCÉDÉE (SOCIÉTÉ PRIVÉE)";
         } else {
-            resultDiv.style.background = "#2ecc71";
-            resultDiv.innerHTML = "✅ NON CONCÉDÉ";
+            resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-green-100 text-green-700 border border-green-200";
+            resultText.innerHTML = "✅ RÉSEAU ÉTAT (DIR - PUBLIC)";
         }
-
     } else {
-
-        console.warn("Aucun segment trouvé ⚠️");
-
-        resultDiv.style.background = "#95a5a6";
-        resultDiv.innerHTML = "⚠️ Hors réseau national";
+        resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-slate-100 text-slate-700 border border-slate-200";
+        resultText.innerHTML = "⚪️ HORS RÉSEAU NATIONAL";
     }
-
-    resultDiv.style.color = "white";
 }
 
+/* ============================================================
+   FONCTION UTILITAIRE : AFFICHAGE ERREUR
+   ============================================================ */
+
+function afficherErreur(message) {
+    const resultDiv = document.getElementById("result");
+    const resultText = document.getElementById("result-text");
+    
+    resultDiv.classList.remove("hidden");
+    resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-orange-100 text-orange-700 border border-orange-200";
+    resultText.innerHTML = "⚠️ " + message;
+}
