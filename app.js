@@ -47,9 +47,9 @@ function verifier() {
 
     if (!reseau) return;
 
-    // Création du point et d'un buffer de 10 mètres (0.01 km) pour plus de précision
+    // Création du point et d'un buffer de 5 mètres (0.005 km) pour plus de précision
     const point = turf.point([lon, lat]);
-    const zoneRecherche = turf.buffer(point, 0.01, { units: 'kilometers' });
+    const zoneRecherche = turf.buffer(point, 0.005, { units: 'kilometers' });
 
     // Recherche du segment
     let segmentTrouve = reseau.features.find(f => {
@@ -89,4 +89,5 @@ function verifier() {
         resultText.innerHTML = "⚪️ HORS RÉSEAU NATIONAL (DÉPARTEMENTALE OU COMMUNALE)";
     }
 }
+
 
