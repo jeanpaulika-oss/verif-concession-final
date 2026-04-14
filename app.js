@@ -49,7 +49,7 @@ function verifier() {
 
     // Création du point et d'un buffer de 3 mètres (0.003 km) pour plus de précision
     const point = turf.point([lon, lat]);
-    const zoneRecherche = turf.buffer(point, 0.003, { units: 'kilometers' });
+    const zoneRecherche = turf.buffer(point, 0.001, { units: 'kilometers' });
 
     // Recherche du segment
     let segmentTrouve = reseau.features.find(f => {
