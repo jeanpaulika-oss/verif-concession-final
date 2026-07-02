@@ -42,13 +42,28 @@ fetch("rrn_concession.json")
 
         reseau = data;
         console.log(`Base de données chargée ✅ (${data.features.length} segments)`);
-        // Affiche le réseau en bleu très clair pour vérification visuelle
-        L.geoJSON(reseau, { style: { color: "#3498db", weight: 1, opacity: 0.1 } }).addTo(map);
+
+        // Affiche tout le réseau coloré par statut : rouge = concédé, vert = état
+        L.geoJSON(reseau, {
+            style: (feature) => {
+                const c = String(feature.properties.concession || "").trim().toUpperCase();
+                return {
+                    color: c === "C" ? "#dc2626" : "#16a34a",
+                    weight: 2,
+                    opacity: 0.7
+                };
+            },
+            onEachFeature: (feature, layer) => {
+                const p = feature.properties;
+                const statut = String(p.concession || "").trim().toUpperCase() === "C" ? "Concédé" : "Réseau État";
+                layer.bindPopup(`<b>${p.route || "Route inconnue"}</b><br>${statut}<br>${p.classifica || ""}`);
+            }
+        }).addTo(map);
     })
     .catch(err => alert("Erreur de chargement du fichier JSON"));
 
 /* ============================================================
-   FONCTION DE VÉRIFICATION
+   FONCTION DE VÉRIFICATION PONCTUELLE
    ============================================================ */
 
 function verifier() {
