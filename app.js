@@ -11,18 +11,44 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let reseau = null;
 let marker = null;
 
+// Tolérance de recherche : distance max (en mètres) entre le point saisi
+// et un segment du RRN pour qu'on considère qu'ils correspondent.
+// Les tracés du RRN sont des lignes centrales généralisées, et une
+// autoroute a souvent 2 chaussées séparées : une valeur trop faible
+// (l'ancien code utilisait 1 m) fait rater des points pourtant bien
+// sur l'autoroute. 30 m est un bon compromis, à ajuster si besoin.
+const SEUIL_METRES = 30;
+
 fetch("rrn_concession.json")
     .then(response => response.json())
     .then(data => {
+        // Pré-calcul d'une bounding box par segment pour un filtrage rapide
+        // avant le calcul de distance précis (perf : évite de calculer
+        // pointToLineDistance sur les ~17000 segments à chaque clic).
+        data.features.forEach(f => {
+            if (!f.geometry) return;
+            const coordsFlat = f.geometry.type === "MultiLineString"
+                ? f.geometry.coordinates.flat()
+                : f.geometry.coordinates;
+            let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+            coordsFlat.forEach(([lon, lat]) => {
+                if (lon < minLon) minLon = lon;
+                if (lon > maxLon) maxLon = lon;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+            });
+            f._bbox = [minLon, minLat, maxLon, maxLat];
+        });
+
         reseau = data;
-        console.log("Base de données chargée ✅");
-        // Optionnel : affiche le réseau en bleu très clair pour vérification
+        console.log(`Base de données chargée ✅ (${data.features.length} segments)`);
+        // Affiche le réseau en bleu très clair pour vérification visuelle
         L.geoJSON(reseau, { style: { color: "#3498db", weight: 1, opacity: 0.1 } }).addTo(map);
     })
     .catch(err => alert("Erreur de chargement du fichier JSON"));
 
 /* ============================================================
-   FONCTION DE VÉRIFICATION OPTIMISÉE
+   FONCTION DE VÉRIFICATION
    ============================================================ */
 
 function verifier() {
@@ -43,52 +69,67 @@ function verifier() {
     // Mise à jour visuelle de la carte
     if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lon]).addTo(map);
-    map.setView([lat, lon], 16); // Zoom plus proche pour vérification
+    map.setView([lat, lon], 16);
 
-    if (!reseau) return;
+    if (!reseau) {
+        alert("La base de données n'est pas encore chargée, réessayez dans un instant.");
+        return;
+    }
 
-    // Création du point et d'un buffer de 3 mètres (0.003 km) pour plus de précision
     const point = turf.point([lon, lat]);
-    const zoneRecherche = turf.buffer(point, 0.001, { units: 'kilometers' });
 
-    // Recherche du segment
-    let segmentTrouve = reseau.features.find(f => {
-        if (!f.geometry) return false;
-        if (f.geometry.type === "MultiLineString") {
-            return f.geometry.coordinates.some(line => {
-                const ligne = turf.lineString(line);
-                return !turf.booleanDisjoint(zoneRecherche, ligne);
-            });
+    // Marge de recherche en degrés pour le pré-filtrage bbox (~0.01° ≈ 1,1 km,
+    // largement suffisant pour ne jamais rater un segment à SEUIL_METRES près).
+    const marge = 0.01;
+
+    let meilleurSegment = null;
+    let distanceMin = Infinity;
+
+    for (const f of reseau.features) {
+        if (!f.geometry || !f._bbox) continue;
+
+        // Filtrage rapide par bounding box avant le calcul précis
+        const [minLon, minLat, maxLon, maxLat] = f._bbox;
+        if (lon < minLon - marge || lon > maxLon + marge ||
+            lat < minLat - marge || lat > maxLat + marge) {
+            continue;
         }
-        return !turf.booleanDisjoint(zoneRecherche, f);
-    });
+
+        const lignes = f.geometry.type === "MultiLineString"
+            ? f.geometry.coordinates.map(c => turf.lineString(c))
+            : [turf.lineString(f.geometry.coordinates)];
+
+        for (const ligne of lignes) {
+            const d = turf.pointToLineDistance(point, ligne, { units: 'meters' });
+            if (d < distanceMin) {
+                distanceMin = d;
+                meilleurSegment = f;
+            }
+        }
+    }
 
     // Affichage des résultats
     resultDiv.classList.remove("hidden");
 
-    if (segmentTrouve) {
-        const p = segmentTrouve.properties;
-        
-        // Extraction et nettoyage des propriétés pour éviter les erreurs de saisie dans le JSON
+    if (meilleurSegment && distanceMin <= SEUIL_METRES) {
+        const p = meilleurSegment.properties;
         const concessionVal = String(p.concession || "").trim().toUpperCase();
-        const statutVal = String(p.statut || "").trim().toUpperCase();
-
-        // On considère concédé si on trouve "C" ou le mot "CONCEDE"
-        const estConcede = (concessionVal === "C" || statutVal.includes("CONCEDE") || statutVal.includes("CONCÉDÉ"));
+        const estConcede = concessionVal === "C";
+        const distanceTxt = `${Math.round(distanceMin)} m`;
+        const routeTxt = p.route ? ` — ${p.route}` : "";
 
         if (estConcede) {
             resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-red-100 text-red-700 border border-red-200";
-            resultText.innerHTML = "🔴 ROUTE CONCÉDÉE (GESTION PRIVÉE)";
+            resultText.innerHTML = `🔴 ROUTE CONCÉDÉE (GESTION PRIVÉE)<br><span class="text-xs font-normal opacity-75">${routeTxt} (segment à ${distanceTxt})</span>`;
         } else {
             resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-green-100 text-green-700 border border-green-200";
-            resultText.innerHTML = "✅ RÉSEAU ÉTAT (DIR - PUBLIC)";
+            resultText.innerHTML = `✅ RÉSEAU ÉTAT (DIR - PUBLIC)<br><span class="text-xs font-normal opacity-75">${routeTxt} (segment à ${distanceTxt})</span>`;
         }
     } else {
-        // Cas où la route n'est pas dans le fichier (ex: départementale)
         resultDiv.className = "mt-6 p-4 rounded-xl text-center bg-slate-100 text-slate-700 border border-slate-200";
-        resultText.innerHTML = "⚪️ HORS RÉSEAU NATIONAL (DÉPARTEMENTALE OU COMMUNALE)";
+        const infoProche = meilleurSegment
+            ? ` (segment le plus proche : ${meilleurSegment.properties.route || '?'} à ${Math.round(distanceMin)} m)`
+            : "";
+        resultText.innerHTML = `⚪️ HORS RÉSEAU NATIONAL (DÉPARTEMENTALE OU COMMUNALE)<br><span class="text-xs font-normal opacity-75">${infoProche}</span>`;
     }
 }
-
-
-
